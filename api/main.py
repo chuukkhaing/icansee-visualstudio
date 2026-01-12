@@ -142,11 +142,10 @@ def openai_edit_image(input_path: str, prompt: str, size: str="1024x1024") -> Im
     if client is None:
         raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
     with open(input_path, "rb") as f:
-        result = client.images.edits(
-            model="gpt-image-1",
-            image=f,
-            prompt=prompt,
-            size=size
+        result = client.responses.create(
+            model="gpt-5",
+            input="Generate an image of gray tabby cat hugging an otter with an orange scarf",
+            tools=[{"type": "image_generation"}],
         )
     img_b64 = result.data[0].b64_json
     img_bytes = base64.b64decode(img_b64)
