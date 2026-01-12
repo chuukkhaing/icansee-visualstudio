@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ICANSEE Visual Studio</title>
+  <style>
+    body{font-family:system-ui,Arial;max-width:900px;margin:24px auto;padding:0 12px}
+    .card{border:1px solid #ddd;border-radius:12px;padding:16px;margin:12px 0}
+    label{display:block;margin:8px 0 4px}
+    select,input,button{padding:10px;border-radius:10px;border:1px solid #ccc;width:100%}
+    button{cursor:pointer}
+    img{max-width:100%;border-radius:12px;border:1px solid #eee}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:720px){.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <h1>ICANSEE Visual Studio (MVP)</h1>
+  <p>Upload a photo → choose a template → generate a new background using OpenAI.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>User ID (any name)</label>
+        <input id="user_id" value="demo-user" />
+      </div>
+      <div>
+        <label>Category</label>
+        <select id="category">
+          <option value="cosmetics">Cosmetics</option>
+          <option value="fmcg">FMCG</option>
+          <option value="watches">Watches</option>
+          <option value="real_estate">Real Estate</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Photo</label>
+    <input id="file" type="file" accept="image/*" />
+
+    <label>Template</label>
+    <select id="template"></select>
+
+    <button id="uploadBtn">1) Upload</button>
+    <button id="genBtn" disabled>2) Generate</button>
+
+    <p id="status"></p>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h3>Result</h3>
+    <img id="resultImg" />
+  </div>
+
+<script>
+  // Change this to your API domain after you connect it in Render:
+  const API_BASE_URL = "https://api.app.icansee.ai";
+
+  const statusEl = document.getElementById("status");
+  const tplEl = document.getElementById("template");
+  const catEl = document.getElementById("category");
+  const uploadBtn = document.getElementById("uploadBtn");
+  const genBtn = document.getElementById("genBtn");
+  const resultCard = document.getElementById("resultCard");
+  const resultImg = document.getElementById("resultImg");
+
+  let projectId = null;
+
+  async function loadTemplates() {
+    const cat = catEl.value;
+    const res = await fetch(`${API_BASE_URL}/templates?category=${encodeURIComponent(cat)}`);
+    const items = await res.json();
+    tplEl.innerHTML = items.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+  }
+  catEl.addEventListener("change", loadTemplates);
+  loadTemplates();
+
+  uploadBtn.addEventListener("click", async () => {
+    const file = document.getElementById("file").files[0];
+    if (!file) { statusEl.textContent = "Please choose a photo."; return; }
+    statusEl.textContent = "Uploading...";
+
+    const fd = new FormData();
+    fd.append("user_id", document.getElementById("user_id").value);
+    fd.append("category", catEl.value);
+    fd.append("image", file);
+
+    const res = await fetch(`${API_BASE_URL}/projects/upload`, { method: "POST", body: fd });
+    const data = await res.json();
+    projectId = data.project_id;
+    genBtn.disabled = false;
+    statusEl.textContent = `Uploaded. Project ID: ${projectId}`;
+  });
+
+  genBtn.addEventListener("click", async () => {
+    if (!projectId) return;
+    statusEl.textContent = "Generating (15–60s)...";
+
+    const fd = new FormData();
+    fd.append("template_id", tplEl.value);
+
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/generate`, { method: "POST", body: fd });
+    const data = await res.json();
+
+    if (data.status !== "succeeded") {
+      statusEl.textContent = "Generation failed. Check API logs.";
+      return;
+    }
+    const url = `${API_BASE_URL}${data.download_url}`;
+    resultImg.src = url;
+    resultCard.style.display = "block";
+    statusEl.textContent = "Done.";
+  });
+</script>
+</body>
+</html>
