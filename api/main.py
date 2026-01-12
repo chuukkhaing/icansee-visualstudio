@@ -18,6 +18,20 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 app = FastAPI(title="ICANSEE Visual Studio API (No AWS)")
 
+# Add this CORS configuration
+origins = [
+    "https://icansee.infinityglobals.com",  # your frontend
+    # "*"  # optionally allow all origins (not recommended for production)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,        # allowed origins
+    allow_credentials=True,
+    allow_methods=["*"],          # GET, POST, PUT, DELETE
+    allow_headers=["*"],          # any headers
+)
+
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
