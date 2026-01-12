@@ -145,7 +145,7 @@ def openai_edit_image(input_path: str, prompt: str, size: str="1024x1024") -> Im
         result = client.images.generate(
             # model="gpt-image-1",
             model="dall-e-mini", 
-            image=f,
+            # image=f,
             prompt=prompt,
             size=size
         )
