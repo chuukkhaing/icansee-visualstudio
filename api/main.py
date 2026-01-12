@@ -2,6 +2,7 @@ import os, io, uuid, base64, sqlite3
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from PIL import Image
 
@@ -17,6 +18,20 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 app = FastAPI(title="ICANSEE Visual Studio API (No AWS)")
+
+# Add this CORS configuration
+origins = [
+    "https://icansee.infinityglobals.com",  # your frontend
+    # "*"  # optionally allow all origins (not recommended for production)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,        # allowed origins
+    allow_credentials=True,
+    allow_methods=["*"],          # GET, POST, PUT, DELETE
+    allow_headers=["*"],          # any headers
+)
 
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
