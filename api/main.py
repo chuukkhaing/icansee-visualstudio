@@ -2,10 +2,8 @@ import os, io, uuid, base64, sqlite3
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from PIL import Image
-import requests
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -19,20 +17,6 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 app = FastAPI(title="ICANSEE Visual Studio API (No AWS)")
-
-# Add this CORS configuration
-origins = [
-    "https://icansee.infinityglobals.com",  # your frontend
-    # "*"  # optionally allow all origins (not recommended for production)
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,        # allowed origins
-    allow_credentials=True,
-    allow_methods=["*"],          # GET, POST, PUT, DELETE
-    allow_headers=["*"],          # any headers
-)
 
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -139,18 +123,19 @@ async def upload_project(
     conn.commit(); conn.close()
     return {"project_id": pid}
 
-def openai_generate_image(prompt: str, size="1024x1024") -> Image.Image:
-    result = client.images.generate(
-        model="dall-e-3",
-        prompt=prompt,
-        size=size
-    )
-
-    url = result.data[0].url
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-
-    return Image.open(io.BytesIO(resp.content)).convert("RGBA")
+def openai_edit_image(input_path: str, prompt: str, size: str="1024x1024") -> Image.Image:
+    if client is None:
+        raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
+    with open(input_path, "rb") as f:
+        result = client.images.edits(
+            model="gpt-image-1",
+            image=f,
+            prompt=prompt,
+            size=size
+        )
+    img_b64 = result.data[0].b64_json
+    img_bytes = base64.b64decode(img_b64)
+    return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
 
 @app.post("/projects/{project_id}/generate")
 def generate(project_id: str, template_id: str = Form(...)):
