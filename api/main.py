@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from PIL import Image
+import requests
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -138,19 +139,31 @@ async def upload_project(
     conn.commit(); conn.close()
     return {"project_id": pid}
 
-def openai_edit_image(input_path: str, prompt: str, size: str="1024x1024") -> Image.Image:
+def openai_edit_image(prompt: str, size: str="1024x1024") -> Image.Image:
     if client is None:
-        raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
-    with open(input_path, "rb") as f:
-        result = client.images.generate(
-            # model="gpt-image-1",
-            model="dall-e-3",
-            # image=f,
-            prompt=prompt,
-            size=size
-        )
-    img_b64 = result.data[0].b64_json
-    img_bytes = base64.b64decode(img_b64)
+        raise RuntimeError("OPENAI_API_KEY missing.")
+
+    result = client.images.generate(
+        model="dall-e-3",  # or gpt-image-1
+        prompt=prompt,
+        size=size
+    )
+
+    image_data = result.data[0]
+
+    # CASE 1: base64 image (gpt-image-1)
+    if image_data.b64_json:
+        img_bytes = base64.b64decode(image_data.b64_json)
+
+    # CASE 2: URL image (dall-e-2 / dall-e-3)
+    elif image_data.url:
+        response = requests.get(image_data.url, timeout=30)
+        response.raise_for_status()
+        img_bytes = response.content
+
+    else:
+        raise RuntimeError("OpenAI returned no image data")
+
     return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
 
 @app.post("/projects/{project_id}/generate")
