@@ -139,32 +139,18 @@ async def upload_project(
     conn.commit(); conn.close()
     return {"project_id": pid}
 
-def openai_edit_image(prompt: str, size: str="1024x1024") -> Image.Image:
-    if client is None:
-        raise RuntimeError("OPENAI_API_KEY missing.")
-
+def openai_generate_image(prompt: str, size="1024x1024") -> Image.Image:
     result = client.images.generate(
-        model="dall-e-3",  # or gpt-image-1
+        model="dall-e-3",
         prompt=prompt,
         size=size
     )
 
-    image_data = result.data[0]
+    url = result.data[0].url
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
 
-    # CASE 1: base64 image (gpt-image-1)
-    if image_data.b64_json:
-        img_bytes = base64.b64decode(image_data.b64_json)
-
-    # CASE 2: URL image (dall-e-2 / dall-e-3)
-    elif image_data.url:
-        response = requests.get(image_data.url, timeout=30)
-        response.raise_for_status()
-        img_bytes = response.content
-
-    else:
-        raise RuntimeError("OpenAI returned no image data")
-
-    return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    return Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
 @app.post("/projects/{project_id}/generate")
 def generate(project_id: str, template_id: str = Form(...)):
