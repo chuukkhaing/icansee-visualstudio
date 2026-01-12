@@ -2,6 +2,7 @@ import os, io, uuid, base64, sqlite3
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from PIL import Image
 
