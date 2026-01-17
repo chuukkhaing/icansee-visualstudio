@@ -7,7 +7,7 @@ from openai import OpenAI
 from PIL import Image
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+client = OpenAI() if OPENAI_API_KEY else None
 
 DATA_DIR = os.getenv("DATA_DIR", "./data")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
@@ -150,9 +150,10 @@ def openai_edit_image(input_path: str, prompt: str, size: str = "1024x1024") -> 
             size=size
         )
 
-    img_b64 = result.data[0].b64_json
-    img_bytes = base64.b64decode(img_b64)
+    if not result.data or not result.data[0].b64_json:
+        raise RuntimeError("OpenAI did not return image data")
 
+    img_bytes = base64.b64decode(result.data[0].b64_json)
     return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
 
 @app.post("/projects/{project_id}/generate")
