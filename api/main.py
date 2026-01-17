@@ -7,7 +7,7 @@ from openai import OpenAI
 from PIL import Image
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI() if OPENAI_API_KEY else None
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 DATA_DIR = os.getenv("DATA_DIR", "./data")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
@@ -138,23 +138,43 @@ async def upload_project(
     conn.commit(); conn.close()
     return {"project_id": pid}
 
-def openai_edit_image(input_path: str, prompt: str, size: str = "1024x1024") -> Image.Image:
-    if client is None:
-        raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
+# -------------------------------------------------
+# OPENAI BACKGROUND GENERATION
+# -------------------------------------------------
+def generate_background(prompt: str, size="1024x1024") -> Image.Image:
+    if not client:
+        raise RuntimeError("OPENAI_API_KEY missing")
 
-    with open(input_path, "rb") as f:
-        result = client.images.edits(
-            model="gpt-image-1",
-            image=f,
-            prompt=prompt,
-            size=size
-        )
-
-    if not result.data or not result.data[0].b64_json:
-        raise RuntimeError("OpenAI did not return image data")
+    result = client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt,
+        size=size
+    )
 
     img_bytes = base64.b64decode(result.data[0].b64_json)
     return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+
+# -------------------------------------------------
+# COMPOSITE ORIGINAL IMAGE ON BACKGROUND
+# -------------------------------------------------
+def compose_image(product_path: str, background: Image.Image) -> Image.Image:
+    product = Image.open(product_path).convert("RGBA")
+
+    background = background.resize(product.size)
+
+    x = (background.width - product.width) // 2
+    y = (background.height - product.height) // 2
+
+    background.paste(product, (x, y), product)
+    return background
+
+
+# -------------------------------------------------
+# MAIN GENERATION FUNCTION
+# -------------------------------------------------
+def openai_edit_image(input_path: str, prompt: str) -> Image.Image:
+    bg = generate_background(prompt)
+    return compose_image(input_path, bg)
 
 @app.post("/projects/{project_id}/generate")
 def generate(project_id: str, template_id: str = Form(...)):
