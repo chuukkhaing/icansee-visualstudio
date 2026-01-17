@@ -142,16 +142,15 @@ async def upload_project(
 # OPENAI BACKGROUND GENERATION
 # -------------------------------------------------
 def generate_background(prompt: str, size="1024x1024") -> Image.Image:
-    if not client:
-        raise RuntimeError("OPENAI_API_KEY missing")
-
     result = client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
         size=size
     )
 
-    img_bytes = base64.b64decode(result.data[0].b64_json)
+    img_b64 = result.data[0].b64_json
+    img_bytes = base64.b64decode(img_b64)
+
     return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
 
 # -------------------------------------------------
@@ -160,21 +159,36 @@ def generate_background(prompt: str, size="1024x1024") -> Image.Image:
 def compose_image(product_path: str, background: Image.Image) -> Image.Image:
     product = Image.open(product_path).convert("RGBA")
 
-    background = background.resize(product.size)
+    # DO NOT resize background to product size
+    bg = background.copy()
 
-    x = (background.width - product.width) // 2
-    y = (background.height - product.height) // 2
+    pw, ph = product.size
+    bw, bh = bg.size
 
-    background.paste(product, (x, y), product)
-    return background
+    x = (bw - pw) // 2
+    y = (bh - ph) // 2
+
+    bg.paste(product, (x, y), product)
+    return bg
+
 
 
 # -------------------------------------------------
 # MAIN GENERATION FUNCTION
 # -------------------------------------------------
 def openai_edit_image(input_path: str, prompt: str) -> Image.Image:
-    bg = generate_background(prompt)
-    return compose_image(input_path, bg)
+    bg_prompt = (
+        "Use the provided photo as the main subject. "
+        "Do NOT change the subject shape, color, branding, or text. "
+        "Create a new realistic background only. "
+        f"Style: {prompt} "
+        "No additional text or watermarks."
+    )
+
+    background = generate_background(bg_prompt)
+    final_image = compose_image(input_path, background)
+
+    return final_image
 
 @app.post("/projects/{project_id}/generate")
 def generate(project_id: str, template_id: str = Form(...)):
