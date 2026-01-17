@@ -138,17 +138,18 @@ async def upload_project(
     conn.commit(); conn.close()
     return {"project_id": pid}
 
-def openai_edit_image(input_path: str, prompt: str, size: str="1024x1024") -> Image.Image:
+def openai_edit_image(input_path: str, prompt: str, size: str = "1024x1024") -> Image.Image:
     if client is None:
         raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
-    with open(input_path, "rb") as f:
-        result = client.responses.create(
-            model="gpt-5",
-            input="Generate an image of gray tabby cat hugging an otter with an orange scarf",
-            tools=[{"type": "image_generation"}],
-        )
+    result = client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt,
+        size=size
+    )
+
     img_b64 = result.data[0].b64_json
     img_bytes = base64.b64decode(img_b64)
+
     return Image.open(io.BytesIO(img_bytes)).convert("RGBA")
 
 @app.post("/projects/{project_id}/generate")
