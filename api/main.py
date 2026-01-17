@@ -205,7 +205,7 @@ def generate(project_id: str, template_id: str = Form(...)):
             f"Avoid: {tpl['negative_prompt']} "
             "No additional text or watermarks."
         )
-        out_img = openai_edit_image(proj["input_path"], base_prompt, size="1024x1024")
+        out_img = openai_edit_image(proj["input_path"], base_prompt)
         out_path = os.path.join(OUTPUTS_DIR, f"{gid}.png")
         out_img.save(out_path, format="PNG")
 
