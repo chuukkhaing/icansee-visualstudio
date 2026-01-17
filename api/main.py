@@ -143,7 +143,6 @@ def openai_edit_image(input_path: str, prompt: str, size: str = "1024x1024") -> 
         raise RuntimeError("OPENAI_API_KEY missing. Set it in Render environment variables.")
         result = client.images.generate(
             model="gpt-image-1",
-            image=f,
             prompt=prompt,
             size=size
         )
